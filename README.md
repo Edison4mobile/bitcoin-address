@@ -33,6 +33,7 @@ http://localhost:8000/docs
 
 ## Publish a release
 yarn npm:login
+
 yarn npm:publish
 
 
