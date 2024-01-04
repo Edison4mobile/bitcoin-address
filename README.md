@@ -4,7 +4,7 @@
 https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-20-04
 
 ## Install node
-
+https://www.digitalocean.com/community/tutorials/how-to-install-node-js-on-ubuntu-20-04
 ## Install yarn
 npm install yarn -g
 ## Install Dependencies
