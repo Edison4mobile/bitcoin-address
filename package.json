@@ -1,6 +1,9 @@
 {
   "name": "bitcoin-address-sync",
   "version": "1.0.0",
+  "publishConfig": {
+    "@Edison4mobile:registry": "https://npm.pkg.github.com"
+  },
   "description": "",
   "main": "index.js",
   "scripts": {
