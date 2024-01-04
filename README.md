@@ -4,10 +4,15 @@ This also provides a kind swagger api documentation so that you can use apis tha
 
 ## Env variables
 DB_HOST=127.0.0.1
+
 DB_USER=
+
 DB_PASSWORD=
+
 DB_DATABASE=bitcoin
+
 SERVER_PORT=8000
+
 SYNC_END_BLOCK_NUMBER=5
 
 EXPLORER_API_ENDPOINT=
