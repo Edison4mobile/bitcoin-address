@@ -1,6 +1,6 @@
 {
   "name": "bitcoin-address-sync",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "publishConfig": {
     "@Edison4mobile:registry": "https://npm.pkg.github.com"
   },
@@ -32,5 +32,13 @@
     "type": "git",
     "url": "https://github.com/Edison4mobile/bitcoin-address",
     "link": "https://www.npmjs.com/package/bitcoin-address-sync"
-  }
+  },
+  "keywords": [
+    "bitcoin",
+    "sync",
+    "address",
+    "node",
+    "nodejs",
+    "javascript"
+  ]
 }
