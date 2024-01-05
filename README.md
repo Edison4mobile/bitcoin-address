@@ -77,3 +77,5 @@ npm install bitcoin-address-sync
 ```javascript
 require('bitcoin-address-sync');
 ```
+
+<img width="2239" alt="Screenshot 2024-01-05 at 6 06 30 PM" src="https://github.com/Edison4mobile/bitcoin-address/assets/31374816/49052164-f553-4e80-aac8-88e0ea2f4556">
