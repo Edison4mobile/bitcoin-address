@@ -281,8 +281,7 @@ const getBlockInfo = async (blockNumber) => {
   for (const address of uniqueAddresses) {
     if (!(await getAddressRecord(address))) newAddresses.push(address);
   }
-  console.log(uniqueAddresses.length, newAddresses.length);
-  const promises = uniqueAddresses.map((address) => {
+  const promises = newAddresses.map((address) => {
     if (process.env.ADDRESS_SYNC_ONLY === "1")
       return {
         data: {
