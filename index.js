@@ -74,17 +74,20 @@ const getSyncedSucceed = (
   pageSize,
   direction,
   orderBy,
+  hasBalance,
   callback
 ) => {
   const offset = pageNumber * pageSize;
-  const query = `SELECT * FROM addresses WHERE balance > 0 ORDER BY ${orderBy} ${direction} LIMIT ${pageSize} OFFSET ${offset}`;
-
+  const query = `SELECT * FROM addresses ${
+    hasBalance == 1 ? "WHERE balance > 0" : ""
+  } ORDER BY ${orderBy} ${direction} LIMIT ${pageSize} OFFSET ${offset}`;
   connection.query(query, (err, results) => {
     if (err) {
       callback(null);
     } else {
-      const totalCountQuery =
-        "SELECT COUNT(*) as totalCount FROM addresses WHERE balance > 0";
+      const totalCountQuery = `SELECT COUNT(*) as totalCount FROM addresses ${
+        hasBalance == 1 ? "WHERE balance > 0" : ""
+      }`;
       connection.query(totalCountQuery, (err, countResult) => {
         if (err) {
           callback(null);
@@ -274,7 +277,19 @@ const getBlockInfo = async (blockNumber) => {
   }
 
   const uniqueAddresses = Array.from(new Set(addresses));
+  const newAddresses = [];
+  for (const address of uniqueAddresses) {
+    if (!(await getAddressRecord(address))) newAddresses.push(address);
+  }
+  console.log(uniqueAddresses.length, newAddresses.length);
   const promises = uniqueAddresses.map((address) => {
+    if (process.env.ADDRESS_SYNC_ONLY === "1")
+      return {
+        data: {
+          address: address,
+          balance: 0,
+        },
+      };
     return getBalance(address);
   });
   const response = await Promise.all(promises);
@@ -636,6 +651,13 @@ app.get("/sync/status", (req, res) => {
  *           default: DESC
  *         description: Sort direction (DESC or ASC)
  *       - in: query
+ *         name: hasBalance
+ *         schema:
+ *           type: number
+ *           enum: [0, 1]
+ *           default: 0
+ *         description: Has balance(0 or 1)
+ *       - in: query
  *         name: orderBy
  *         schema:
  *           type: string
@@ -703,8 +725,10 @@ app.get("/sync/status", (req, res) => {
 app.get("/sync/succeed", (req, res) => {
   const pageSize = parseInt(req.query.pageSize) || 100;
   const pageNumber = parseInt(req.query.pageNumber) || 0;
+  const hasBalance = parseInt(req.query.hasBalance) || 0;
   let direction = req.query.direction || "DESC";
   let orderBy = req.query.orderBy || "balance";
+
   if (direction !== "DESC" && direction !== "ASC") {
     direction = "DESC";
   }
@@ -713,13 +737,20 @@ app.get("/sync/succeed", (req, res) => {
     orderBy = "balance";
   }
 
-  getSyncedSucceed(pageNumber, pageSize, direction, orderBy, (results) => {
-    if (!results) {
-      res.status(500).json({ error: "Internal server error" });
-    } else {
-      res.status(200).json(results);
+  getSyncedSucceed(
+    pageNumber,
+    pageSize,
+    direction,
+    orderBy,
+    hasBalance,
+    (results) => {
+      if (!results) {
+        res.status(500).json({ error: "Internal server error" });
+      } else {
+        res.status(200).json(results);
+      }
     }
-  });
+  );
 });
 
 /**
