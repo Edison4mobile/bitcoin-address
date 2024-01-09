@@ -433,6 +433,9 @@ const syncBlocks = async (start, end) => {
   } else {
     console.log("sync start");
     console.log(new Date());
+    const totalBlocks = end - start + 1;
+    let processedBlocks = 0;
+
     for (let index = start; index < end + 1; index++) {
       try {
         const info = await getBlockInfo(index);
@@ -452,9 +455,16 @@ const syncBlocks = async (start, end) => {
         await addFailedRecord(index, error?.message ?? JSON.stringify(error));
       }
       await updateStatusKey("status", "blockNumber", index);
+
+      processedBlocks++;
+      const progress = (processedBlocks / totalBlocks) * 100;
+      process.stdout.write(
+        `Progress: ${progress.toFixed(10)}% ${processedBlocks}/${totalBlocks}\r`
+      );
     }
 
-    console.log("sync start");
+    console.log("\n"); // Add a newline after the loop completes
+    console.log("sync end");
     console.log(new Date());
   }
 };
