@@ -1,3 +1,5 @@
+const { default: axios } = require("axios");
+const { bitcoin } = require("bitcoinjs-lib/src/networks");
 const express = require("express");
 const mysql = require("mysql2");
 const swaggerJsdoc = require("swagger-jsdoc");
@@ -11,6 +13,62 @@ const connection = mysql.createConnection({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
 });
+
+const extractAddress = (scriptPubKey) => {
+  try {
+    if (
+      scriptPubKey.type === "pubkeyhash" ||
+      scriptPubKey.type === "scripthash"
+    ) {
+      return scriptPubKey.address;
+    } else if (scriptPubKey.type === "pubkey") {
+      // Decode pubkey and convert to address
+      const pubkeyBuffer = Buffer.from(scriptPubKey.hex, "hex");
+      const address = bitcoin.payments.p2pkh({ pubkey: pubkeyBuffer }).address;
+      return [address];
+    }
+    // Add more conditions for other types if necessary
+  } catch (error) {
+    console.error("Error in extractAddress:", error.message);
+  }
+  return [];
+};
+
+const callDaemon = async (method, params) => {
+  const rpcRequest = {
+    jsonrpc: "1.0",
+    id: "curltext",
+    method: method,
+    params: params,
+  };
+  const auth = {
+    username: process.env.DAEMON_USER,
+    password: process.env.DAEMON_PASSWORD,
+  };
+  try {
+    const response = await axios.post(
+      process.env.DAEMON_API_ENDPOINT,
+      rpcRequest,
+      { auth }
+    );
+    const result = response.data.result;
+    return result;
+  } catch (error) {
+    throw error?.response?.data?.error?.message ?? error.message;
+  }
+};
+
+const getBlockHash = async (block) => {
+  return await callDaemon("getblockhash", block);
+};
+
+const getBlock = async (hash) => {
+  return await callDaemon("getblock", hash);
+};
+
+const getRawTransaction = async (txHash) => {
+  return await callDaemon("getrawtransaction", txHash);
+};
 
 const getBitcoinInfo = (address, callback) => {
   const query = "SELECT address, balance FROM addresses WHERE address = ?";
@@ -469,6 +527,56 @@ const syncBlocks = async (start, end) => {
   }
 };
 
+const syncRpcBlocks = async (start, end) => {
+  console.log(start, end);
+  if (end <= start) {
+    console.log("Bitcoin block was already synced");
+  } else {
+    console.log("sync start");
+    console.log(new Date());
+    const totalBlocks = end - start + 1;
+    let processedBlocks = 0;
+
+    for (let index = start; index < end + 1; index++) {
+      try {
+        const blockHash = await getBlockHash([index]);
+        const block = await getBlock([blockHash]);
+        const txs = block.tx;
+        const addresses = {};
+        for (const tx of txs) {
+          const transaction = await getRawTransaction([tx, true]);
+          for (const out of transaction.vout) {
+            if (out.scriptPubKey.address) {
+              addresses[out.scriptPubKey.address] = 0;
+            }
+          }
+        }
+        console.log(addresses);
+        for (const address of Object.keys(addresses)) {
+          const existingRecord = await getAddressRecord(address);
+          if (!existingRecord) {
+            await addNewAddressRecord(address, index, 0);
+          }
+        }
+      } catch (error) {
+        console.log(error?.message ?? JSON.stringify(error));
+        await addFailedRecord(index, error?.message ?? JSON.stringify(error));
+      }
+      await updateStatusKey("status", "blockNumber", index);
+
+      processedBlocks++;
+      const progress = (processedBlocks / totalBlocks) * 100;
+      process.stdout.write(
+        `Progress: ${progress.toFixed(10)}% ${processedBlocks}/${totalBlocks}\r`
+      );
+    }
+
+    console.log("\n"); // Add a newline after the loop completes
+    console.log("sync end");
+    console.log(new Date());
+  }
+};
+
 const startSync = () => {
   const syncEndBlockNumber = parseInt(process.env.SYNC_END_BLOCK_NUMBER);
   getSyncedBLockNumber((blockNumber) => {
@@ -476,7 +584,7 @@ const startSync = () => {
       console.log("Cannot start sync");
     } else {
       createServer();
-      syncBlocks(parseInt(blockNumber) + 1, syncEndBlockNumber);
+      syncRpcBlocks(parseInt(blockNumber) + 1, syncEndBlockNumber);
     }
   });
 };
