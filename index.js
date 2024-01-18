@@ -1,5 +1,8 @@
 const { default: axios } = require("axios");
+const { bech32 } = require("bech32");
+const { hash160 } = require("bitcoinjs-lib/src/crypto");
 const { bitcoin } = require("bitcoinjs-lib/src/networks");
+const { p2pkh, p2wpkh } = require("bitcoinjs-lib/src/payments");
 const express = require("express");
 const mysql = require("mysql2");
 const swaggerJsdoc = require("swagger-jsdoc");
@@ -18,20 +21,23 @@ const extractAddress = (scriptPubKey) => {
   try {
     if (
       scriptPubKey.type === "pubkeyhash" ||
-      scriptPubKey.type === "scripthash"
+      scriptPubKey.type === "scripthash" ||
+      scriptPubKey.address
     ) {
       return scriptPubKey.address;
     } else if (scriptPubKey.type === "pubkey") {
-      // Decode pubkey and convert to address
       const pubkeyBuffer = Buffer.from(scriptPubKey.hex, "hex");
-      const address = bitcoin.payments.p2pkh({ pubkey: pubkeyBuffer }).address;
-      return [address];
+      const pubKeyHash = hash160(pubkeyBuffer);
+      const publicKeyHashBytes = Buffer.from(pubKeyHash, "hex");
+      const address = bech32.encode("bc", bech32.toWords(publicKeyHashBytes));
+      return address;
     }
     // Add more conditions for other types if necessary
   } catch (error) {
     console.error("Error in extractAddress:", error.message);
+    return null;
   }
-  return [];
+  return null;
 };
 
 const callDaemon = async (method, params) => {
@@ -548,10 +554,11 @@ const syncRpcBlocks = async (start, end) => {
           for (const out of transaction.vout) {
             if (out.scriptPubKey.address) {
               addresses[out.scriptPubKey.address] = 0;
+            } else {
+              addresses[extractAddress(out.scriptPubKey)] = 0;
             }
           }
         }
-        console.log(addresses);
         for (const address of Object.keys(addresses)) {
           const existingRecord = await getAddressRecord(address);
           if (!existingRecord) {
